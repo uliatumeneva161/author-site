@@ -1,0 +1,172 @@
+/* Палитра по ТЗ: тёплый бежевый фон, глубокий синий акцент, спокойная типографика */
+:root {
+  --bg: #faf6ef;
+  --bg-soft: #f1e9da;
+  --ink: #2e2a24;
+  --muted: #7a7264;
+  --accent: #1f3a5f;
+  --accent-soft: #e4ebf4;
+  --border: #e3d9c6;
+}
+
+body {
+  font-family: "Manrope", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+section {
+  padding: 72px 0;
+}
+
+section:nth-of-type(even) {
+  background: var(--bg-soft);
+}
+
+h1, h2 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.section-title {
+  margin-bottom: 8px;
+}
+
+.section-sub {
+  color: var(--muted);
+  margin-bottom: 32px;
+}
+
+/* Навигация */
+.site-nav {
+  background: rgba(250, 246, 239, 0.95);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-nav .navbar-brand {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* Hero */
+.hero {
+  padding: 96px 0;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  line-height: 1.15;
+  margin-bottom: 16px;
+}
+
+.hero-photo,
+.about-photo {
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(31, 58, 95, 0.15);
+}
+
+/* Кнопки */
+.btn-accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-accent:hover {
+  background: #162945;
+  border-color: #162945;
+  color: #fff;
+}
+
+.btn-ghost {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: transparent;
+}
+
+.btn-ghost:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Карточки */
+.card-soft {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.card-soft .card-img-top {
+  border-radius: 16px 16px 0 0;
+}
+
+.price {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+
+.badge-soon {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.chapter-list .list-group-item {
+  border-color: var(--border);
+}
+
+.pay-note {
+  font-size: 0.85rem;
+}
+
+/* Эссе и стихи */
+.accordion-item {
+  border-color: var(--border);
+}
+
+.accordion-button:not(.collapsed) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.poem {
+  font-style: italic;
+  line-height: 1.8;
+}
+
+.nav-pills .nav-link {
+  color: var(--accent);
+}
+
+.nav-pills .nav-link.active {
+  background: var(--accent);
+}
+
+/* Конструктор подарка */
+.total-price {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* AI-слот: сюда встанет iframe/виджет приложения */
+.ai-slot {
+  margin-top: 16px;
+  padding: 32px;
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  background: var(--accent-soft);
+  text-align: center;
+}
+
+footer {
+  background: var(--ink);
+  color: #e9e2d4;
+  padding: 48px 0 32px;
+}
+
+footer a {
+  color: #e9e2d4;
+}
