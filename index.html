@@ -130,7 +130,7 @@
             <ol class="list-group list-group-numbered chapter-list">
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 Карта привязанности
-                <a href="#" class="btn btn-sm btn-ghost">Читать бесплатно</a>
+                <button type="button" class="btn btn-sm btn-ghost" data-free="Глава 1 «Карта привязанности» — бесплатно">Читать бесплатно</button>
               </li>
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 Страх потерять
@@ -157,7 +157,7 @@
                 <button type="button" class="btn btn-sm btn-accent" data-pay="Глава 7 — 100 ₽">Купить · 100 ₽</button>
               </li>
             </ol>
-            <p class="text-muted mt-3 mb-0 pay-note">Демо: оплата через ЮKassa подключается на боевом сайте — после оплаты глава придёт на email автоматически.</p>
+            <p class="text-muted mt-3 mb-0 pay-note">Оплата картой онлайн. После оплаты ссылка для скачивания придёт на email автоматически.</p>
           </div>
         </div>
       </div>
@@ -295,7 +295,7 @@
                 <input type="tel" class="form-control" placeholder="Телефон" required>
                 <input type="text" class="form-control" placeholder="Адрес доставки" required>
                 <button type="submit" class="btn btn-accent btn-lg">Оформить заказ</button>
-                <p class="text-muted small mb-0">Демо: в боевой версии заявка уйдёт на email автора.</p>
+                <p class="text-muted small mb-0">Нажимая кнопку, вы соглашаетесь с <a href="oferta.html">офертой</a>.</p>
               </form>
             </div></div>
           </div>
@@ -320,7 +320,7 @@
     <section id="ai">
       <div class="container">
         <h2 class="section-title">Решение за 5 минут</h2>
-        <p class="section-sub">Озвучьте проблему — алгоритм проведёт по шагам к решению. <span class="badge badge-soon">скоро · <span id="aiCount">1 248</span> человек уже попробовали</span></p>
+        <p class="section-sub">Озвучьте проблему — алгоритм проведёт по шагам к решению. <span class="badge badge-soon">раздел в разработке</span></p>
         <div class="card card-soft"><div class="card-body">
           <div class="form-check mb-3">
             <input class="form-check-input" type="checkbox" id="aiConsent">
@@ -387,14 +387,13 @@
         </div>
         <div class="col-md-4">
           <h5>Контакты</h5>
-          <p class="mb-1"><a href="mailto:hello@example.com">hello@example.com</a></p>
-          <p class="mb-0"><a href="tel:+70000000000">+7 (000) 000-00-00</a></p>
+          <p class="mb-1"><a href="mailto:vitrina.orders.knigi@gmail.com">vitrina.orders.knigi@gmail.com</a></p>
+          <p class="mb-0"><a href="tel:+79537318736">+7 (953) 731-87-36</a></p>
         </div>
         <div class="col-md-4">
-          <h5>Ещё</h5>
-          <p class="mb-1"><a href="#">Telegram</a> · <a href="#">VK</a> · <a href="#">YouTube</a></p>
+          <h5>Покупателям</h5>
           <p class="mb-1"><a href="oferta.html">Оферта</a> · <a href="oferta.html#delivery">Доставка и оплата</a> · <a href="oferta.html#requisites">Реквизиты</a></p>
-          <p class="mb-0"><a href="#">Политика конфиденциальности</a></p>
+          <p class="mb-0"><a href="privacy.html">Политика конфиденциальности</a></p>
         </div>
       </div>
     </div>
@@ -409,10 +408,10 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <p class="text-muted">Оставьте email — после оплаты глава придёт на него автоматически. Демо-режим: оплата через ЮKassa подключается на боевом сайте.</p>
+          <p class="text-muted" id="buyHint">Оставьте email — после оплаты глава придёт на него автоматически.</p>
           <form id="buyForm" class="d-grid gap-2">
             <input id="buyEmail" type="email" class="form-control" placeholder="you@example.com" required>
-            <button type="submit" class="btn btn-accent">Перейти к оплате</button>
+            <button type="submit" class="btn btn-accent" id="buySubmit">Перейти к оплате</button>
           </form>
         </div>
       </div>

@@ -20,6 +20,7 @@ function leadSubject(type) {
   const names = {
     "gift-order": "Новый заказ миникнижки",
     "chapter-order": "Покупка главы",
+    "free-chapter": "Запрос бесплатной главы",
     "subscribe": "Новая подписка",
     "ai-rating": "Оценка AI-раздела",
     "review": "Новый отзыв"

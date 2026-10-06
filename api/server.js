@@ -10,7 +10,7 @@ const { notifyLead, mailConfigured } = require("./mailer");
 
 const PORT = Number(process.env.PORT || 3100);
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "change-me";
-const LEAD_TYPES = ["gift-order", "chapter-order", "subscribe", "ai-rating", "review"];
+const LEAD_TYPES = ["gift-order", "chapter-order", "free-chapter", "subscribe", "ai-rating", "review"];
 
 // Антиспам своими руками (без зависимостей): скользящее окно на IP.
 // Не больше 10 записей в минуту с одного адреса — скрипт-спамер

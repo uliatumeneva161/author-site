@@ -194,10 +194,15 @@ function loadReviews() {
 /* ============================================================
  * Покупка глав: модалка оформления
  * ============================================================ */
-function openBuyModal(title) {
+function openBuyModal(title, isFree) {
   document.getElementById("buyTitle").textContent = title;
   document.getElementById("buyEmail").value = "";
   var form = document.getElementById("buyForm");
+  form.dataset.mode = isFree ? "free" : "pay";
+  document.getElementById("buyHint").textContent = isFree
+    ? "Оставьте email — вышлем первую главу бесплатно."
+    : "Оставьте email — после оплаты глава придёт на него автоматически.";
+  document.getElementById("buySubmit").textContent = isFree ? "Получить главу" : "Перейти к оплате";
   var old = form.querySelector(".form-status");
   if (old) old.remove();
   new bootstrap.Modal(document.getElementById("buyModal")).show();
@@ -238,9 +243,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // --- Покупка глав ---
+  // --- Покупка глав + бесплатная первая глава ---
   document.querySelectorAll("[data-pay]").forEach(function (btn) {
-    btn.addEventListener("click", function () { openBuyModal(btn.getAttribute("data-pay")); });
+    btn.addEventListener("click", function () { openBuyModal(btn.getAttribute("data-pay"), false); });
+  });
+  document.querySelectorAll("[data-free]").forEach(function (btn) {
+    btn.addEventListener("click", function () { openBuyModal(btn.getAttribute("data-free"), true); });
   });
 
   var buyForm = document.getElementById("buyForm");
@@ -248,7 +256,8 @@ document.addEventListener("DOMContentLoaded", function () {
     buyForm.addEventListener("submit", function (e) {
       e.preventDefault();
       var email = document.getElementById("buyEmail").value;
-      sendLead("chapter-order", {
+      var mode = buyForm.dataset.mode === "free" ? "free-chapter" : "chapter-order";
+      sendLead(mode, {
         item: document.getElementById("buyTitle").textContent, email: email
       }).then(function (ok) {
         formStatus(buyForm, ok);
