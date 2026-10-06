@@ -5,8 +5,9 @@ require("dotenv").config({ path: require("path").join(__dirname, ".env") });
 
 const path = require("path");
 const fastify = require("fastify")({ logger: true });
-const { saveLead, markEmailed, listLeads, saveReview, listApprovedReviews, listAllReviews, setReviewApproved, deleteReview } = require("./db");
+const { saveLead, markEmailed, listLeads, saveReview, listApprovedReviews, listAllReviews, setReviewApproved, deleteReview, savePayment, setPaymentStatus, getPayment } = require("./db");
 const { notifyLead, mailConfigured } = require("./mailer");
+const yk = require("./payments");
 
 const PORT = Number(process.env.PORT || 3100);
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "change-me";
@@ -121,6 +122,56 @@ function checkAdmin(request, reply) {
   }
   return true;
 }
+
+// POST /api/pay {item, email, amountKopeks} -> {ok, paymentUrl} | {ok:false, needLead:true}
+// Если ключей ЮKassa нет — фронт молча уйдёт в режим заявки (needLead).
+fastify.post("/api/pay", WRITE_LIMIT, async (request, reply) => {
+  const body = request.body || {};
+  const item = String(body.item || "").slice(0, 128);
+  const email = String(body.email || "").trim();
+  const amountKopeks = Number(body.amountKopeks);
+  if (!item || !/.+@.+\..+/.test(email) || !Number.isInteger(amountKopeks) || amountKopeks < 100 || amountKopeks > 15000000) {
+    return reply.code(400).send({ ok: false, error: "bad item/email/amount" });
+  }
+  if (!yk.configured) {
+    return { ok: false, needLead: true };
+  }
+  try {
+    const { ykId, confirmUrl } = await yk.createPayment({ amountKopeks, description: item, email });
+    if (!confirmUrl) throw new Error("no confirmation url");
+    savePayment(ykId, item, email, amountKopeks);
+    return { ok: true, paymentUrl: confirmUrl };
+  } catch (err) {
+    fastify.log.error(`createPayment failed: ${err.message}`);
+    return reply.code(502).send({ ok: false, error: "payment provider unavailable" });
+  }
+});
+
+// POST /api/payments/notify — webhook ЮKassa {event, object:{id}}.
+// Телу уведомления не доверяем: статус перепроверяем запросом в ЮKassa.
+fastify.post("/api/payments/notify", async (request) => {
+  const obj = (request.body && request.body.object) || {};
+  const ykId = obj.id;
+  if (!ykId || !yk.configured) return { ok: true, ignored: true };
+  if (!getPayment(ykId)) return { ok: true, ignored: true }; // чужой платёж
+  try {
+    const { paid } = await yk.fetchPaymentStatus(ykId);
+    setPaymentStatus(ykId, paid ? "succeeded" : "failed");
+    if (paid) {
+      const p = getPayment(ykId);
+      const leadId = saveLead("chapter-order", { item: p.item + " [ОПЛАЧЕНО]", email: p.email, amount_kopeks: p.amount_kopeks });
+      try {
+        if (await notifyLead(leadId, "chapter-order", { item: p.item, email: p.email })) markEmailed(leadId);
+      } catch (err) {
+        fastify.log.error(`paid notify failed: ${err.message}`);
+      }
+      // TODO: автовыдача файла (когда появятся файлы глав) + страница скачивания.
+    }
+  } catch (err) {
+    fastify.log.error(`notify verify failed for ${ykId}: ${err.message}`);
+  }
+  return { ok: true };
+});
 
 // GET /api/admin/reviews -> все отзывы для модерации
 fastify.get("/api/admin/reviews", async (request, reply) => {

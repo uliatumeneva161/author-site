@@ -34,12 +34,16 @@ async function notifyLead(id, type, payload) {
     console.log("[MAIL demo — SMTP не настроен]\n" + text);
     return false;
   }
-  await transport.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: process.env.NOTIFY_TO,
-    subject: leadSubject(type),
-    text
-  });
+  await Promise.race([
+    transport.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: process.env.NOTIFY_TO,
+      subject: leadSubject(type),
+      text
+    }),
+    // Почта никогда не должна подвешивать ответ дольше 10 секунд.
+    new Promise((_, reject) => setTimeout(() => reject(new Error("smtp timeout 10s")), 10000))
+  ]);
   return true;
 }
 

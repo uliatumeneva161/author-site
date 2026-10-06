@@ -208,6 +208,11 @@ function openBuyModal(title, isFree) {
   new bootstrap.Modal(document.getElementById("buyModal")).show();
 }
 
+function closeBuyModal() {
+  var m = bootstrap.Modal.getInstance(document.getElementById("buyModal"));
+  if (m) m.hide();
+}
+
 /* ============================================================
  * Инициализация
  * ============================================================ */
@@ -244,8 +249,12 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // --- Покупка глав + бесплатная первая глава ---
+  var pendingPrice = 0;
   document.querySelectorAll("[data-pay]").forEach(function (btn) {
-    btn.addEventListener("click", function () { openBuyModal(btn.getAttribute("data-pay"), false); });
+    btn.addEventListener("click", function () {
+      pendingPrice = Number(btn.getAttribute("data-price") || 0);
+      openBuyModal(btn.getAttribute("data-pay"), false);
+    });
   });
   document.querySelectorAll("[data-free]").forEach(function (btn) {
     btn.addEventListener("click", function () { openBuyModal(btn.getAttribute("data-free"), true); });
@@ -256,19 +265,46 @@ document.addEventListener("DOMContentLoaded", function () {
     buyForm.addEventListener("submit", function (e) {
       e.preventDefault();
       var email = document.getElementById("buyEmail").value;
-      var mode = buyForm.dataset.mode === "free" ? "free-chapter" : "chapter-order";
-      sendLead(mode, {
-        item: document.getElementById("buyTitle").textContent, email: email
-      }).then(function (ok) {
-        formStatus(buyForm, ok);
-        if (ok) {
-          setTimeout(function () {
-            var m = bootstrap.Modal.getInstance(document.getElementById("buyModal"));
-            if (m) m.hide();
-          }, 1200);
+      var item = document.getElementById("buyTitle").textContent;
+      // Бесплатная глава — сразу заявка, без денег.
+      if (buyForm.dataset.mode === "free") {
+        sendLead("free-chapter", { item: item, email: email }).then(function (ok) {
+          formStatus(buyForm, ok);
+          if (ok) setTimeout(closeBuyModal, 1200);
+        });
+        return;
+      }
+      // Платная: сначала пробуем кассу; без ключей сервер вернёт needLead.
+      fetch("/api/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item: item, email: email, amountKopeks: pendingPrice })
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.ok && data.paymentUrl) {
+          location.href = data.paymentUrl; // редирект на страницу ЮKassa
+          return;
         }
+        // Ключей нет или касса недоступна — честная заявка вместо оплаты.
+        sendLead("chapter-order", { item: item, email: email }).then(function (ok) {
+          formStatus(buyForm, ok);
+          if (ok) setTimeout(closeBuyModal, 1200);
+        });
+      }).catch(function () {
+        sendLead("chapter-order", { item: item, email: email }).then(function (ok) {
+          formStatus(buyForm, ok);
+          if (ok) setTimeout(closeBuyModal, 1200);
+        });
       });
     });
+  }
+
+  // Сообщение после возврата с оплаты (?paid=1 в return_url).
+  if (location.search.indexOf("paid=1") !== -1) {
+    var note = document.createElement("p");
+    note.className = "paid-note";
+    note.textContent = "Оплата получена, спасибо! Ссылка для скачивания уже летит на ваш email.";
+    var chapters = document.getElementById("chapters");
+    if (chapters) chapters.prepend(note);
   }
 
   // --- AI-блок ---

@@ -63,7 +63,33 @@ function deleteReview(id) {
   db.prepare("DELETE FROM reviews WHERE id = ?").run(id);
 }
 
-module.exports = { saveLead, markEmailed, listLeads, saveReview, listApprovedReviews, listAllReviews, setReviewApproved, deleteReview };
+db.exec(`
+  CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    yk_id TEXT NOT NULL UNIQUE,   -- id платежа в ЮKassa
+    item TEXT NOT NULL,
+    email TEXT NOT NULL,
+    amount_kopeks INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | succeeded | failed
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+function savePayment(ykId, item, email, amountKopeks) {
+  db.prepare(
+    "INSERT INTO payments (yk_id, item, email, amount_kopeks) VALUES (?, ?, ?, ?)"
+  ).run(ykId, item, email, amountKopeks);
+}
+
+function setPaymentStatus(ykId, status) {
+  db.prepare("UPDATE payments SET status = ? WHERE yk_id = ?").run(status, ykId);
+}
+
+function getPayment(ykId) {
+  return db.prepare("SELECT * FROM payments WHERE yk_id = ?").get(ykId);
+}
+
+module.exports = { saveLead, markEmailed, listLeads, saveReview, listApprovedReviews, listAllReviews, setReviewApproved, deleteReview, savePayment, setPaymentStatus, getPayment };
 
 function saveLead(type, payload) {
   const info = db.prepare("INSERT INTO leads (type, payload) VALUES (?, ?)").run(type, JSON.stringify(payload));
