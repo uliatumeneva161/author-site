@@ -2,37 +2,58 @@
 
 /* ============================================================
  * Конфигурация отправки заявок.
- * Сейчас endpoint пустой: формы работают в демо-режиме
- * (успех + запись в консоль). Когда появится почта/CRM —
- * вставить сюда URL (FormSubmit, Formspree или свой API),
- * и все формы начнут слать туда БЕЗ переделки кода.
+ * "/api/leads" — свой мини-бэкенд (api/server.js): сохраняет
+ * в SQLite, шлёт на почту, видно в /admin.html.
+ * Сюда же можно вставить внешний URL (FormSubmit/Formspree).
+ * Пустая строка = демо-режим (журнал в localStorage).
  * ============================================================ */
-var LEAD_ENDPOINT = "";
+var LEAD_ENDPOINT = "/api/leads";
+
+/* Флаг последнего вызова: true = заявка ушла только локально (сервер недоступен). */
+var lastLeadLocal = false;
 
 /**
  * Единая точка отправки заявок: {form, ...payload}.
- * Возвращает Promise<boolean> — true, если заявка ушла/принята.
+ * Возвращает Promise<boolean> — true, если заявка сохранена
+ * (на сервере ИЛИ локально при недоступности сервера).
  */
 function sendLead(type, payload) {
   var body = { form: type, page: location.href, at: new Date().toISOString() };
   for (var k in payload) body[k] = payload[k];
+  lastLeadLocal = false;
 
   if (!LEAD_ENDPOINT) {
     console.log("[DEMO lead]", body);
-    // Демо-журнал: заявки складываем в localStorage, чтобы пережить
-    // перезагрузку. Посмотреть: showLeads() в консоли. Очистить: clearLeads().
-    try {
-      var journal = JSON.parse(localStorage.getItem("leadsJournal.v1") || "[]");
-      journal.push(body);
-      localStorage.setItem("leadsJournal.v1", JSON.stringify(journal));
-    } catch (e) { /* приватный режим */ }
+    journalLead(body);
+    lastLeadLocal = true;
     return Promise.resolve(true);
   }
   return fetch(LEAD_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body)
-  }).then(function (r) { return r.ok; }).catch(function () { return false; });
+  }).then(function (r) {
+    if (!r.ok) throw new Error("bad status");
+    return r.json();
+  }).then(function () {
+    return true;
+  }).catch(function () {
+    // Сервер недоступен (открыли как файл / API спит):
+    // не теряем заявку — кладём в локальный журнал честно сказав об этом.
+    console.log("[OFFLINE lead, saved locally]", body);
+    journalLead(body);
+    lastLeadLocal = true;
+    return true;
+  });
+}
+
+/** Сложить заявку в локальный журнал (переживает перезагрузку). */
+function journalLead(body) {
+  try {
+    var journal = JSON.parse(localStorage.getItem("leadsJournal.v1") || "[]");
+    journal.push(body);
+    localStorage.setItem("leadsJournal.v1", JSON.stringify(journal));
+  } catch (e) { /* приватный режим */ }
 }
 
 /** Показать все демо-заявки из журнала (вызвать в консоли: showLeads()). */
@@ -47,16 +68,18 @@ function showLeads() {
 function clearLeads() {
   try { localStorage.removeItem("leadsJournal.v1"); } catch (e) { /* noop */ }
 }
-
 /** Маленький помощник: показать статус под формой. */
-function formStatus(form, ok) {  var el = form.querySelector(".form-status");
+function formStatus(form, ok) {
+  var el = form.querySelector(".form-status");
   if (!el) {
     el = document.createElement("p");
     el.className = "form-status small mt-2 mb-0";
     form.appendChild(el);
   }
   el.textContent = ok
-    ? "Готово! Заявка принята, автор свяжется с вами."
+    ? (lastLeadLocal
+      ? "Принято локально (нет связи с сервером) — при появлении сети оформите ещё раз."
+      : "Готово! Заявка принята, автор свяжется с вами.")
     : "Не получилось отправить. Попробуйте позже.";
 }
 
@@ -121,41 +144,50 @@ function loadDraft() {
 }
 
 /* ============================================================
- * Отзывы: базовые + пользовательские (localStorage), рендер
+ * Отзывы: сервер — источник правды, localStorage — запасной.
+ * Новый отзыв уходит на модерацию и появляется после одобрения.
  * ============================================================ */
 var BASE_REVIEWS = [
   { text: "Прочитала первую главу — и купила книгу целиком в тот же вечер. Так про меня ещё никто не писал.", name: "Марина" },
   { text: "Собирала миникнижку маме. Она плакала. Я тоже. Упаковка — как из сказки.", name: "Ольга" }
 ];
-var USER_REVIEWS_KEY = "userReviews.v1";
 
-function getUserReviews() {
-  try { return JSON.parse(localStorage.getItem(USER_REVIEWS_KEY) || "[]"); }
-  catch (e) { return []; }
+function reviewCard(r) {
+  var col = document.createElement("div");
+  col.className = "col-md-6";
+  var card = document.createElement("div");
+  card.className = "card card-soft h-100";
+  var body = document.createElement("div");
+  body.className = "card-body";
+  var p = document.createElement("p");
+  p.textContent = "«" + r.text + "»";
+  var who = document.createElement("p");
+  who.className = "text-muted mb-0";
+  who.textContent = "— " + r.name;
+  body.appendChild(p);
+  body.appendChild(who);
+  card.appendChild(body);
+  col.appendChild(card);
+  return col;
 }
 
-function renderReviews() {
+function renderReviews(list) {
   var box = document.getElementById("reviewsList");
   if (!box) return;
-  var all = BASE_REVIEWS.concat(getUserReviews());
   box.innerHTML = "";
-  all.forEach(function (r) {
-    var col = document.createElement("div");
-    col.className = "col-md-6";
-    var card = document.createElement("div");
-    card.className = "card card-soft h-100";
-    var body = document.createElement("div");
-    body.className = "card-body";
-    var p = document.createElement("p");
-    p.textContent = "«" + r.text + "»";
-    var who = document.createElement("p");
-    who.className = "text-muted mb-0";
-    who.textContent = "— " + r.name;
-    body.appendChild(p);
-    body.appendChild(who);
-    card.appendChild(body);
-    col.appendChild(card);
-    box.appendChild(col);
+  list.forEach(function (r) { box.appendChild(reviewCard(r)); });
+  if (!box.children.length) box.innerHTML = '<p class="text-muted">Отзывов пока нет — станьте первой.</p>';
+}
+
+/** Загрузить одобренные отзывы с сервера; offline — базовые. */
+function loadReviews() {
+  fetch("/api/reviews").then(function (r) {
+    if (!r.ok) throw new Error("bad status");
+    return r.json();
+  }).then(function (data) {
+    renderReviews(data.reviews && data.reviews.length ? data.reviews : BASE_REVIEWS);
+  }).catch(function () {
+    renderReviews(BASE_REVIEWS);
   });
 }
 
@@ -269,8 +301,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // --- Отзывы: рендер + добавление ---
-  renderReviews();
+  // --- Отзывы: рендер с сервера + отправка на модерацию ---
+  loadReviews();
   var revForm = document.getElementById("reviewForm");
   if (revForm) {
     revForm.addEventListener("submit", function (e) {
@@ -278,13 +310,21 @@ document.addEventListener("DOMContentLoaded", function () {
       var text = document.getElementById("revText").value.trim();
       var name = document.getElementById("revName").value.trim() || "Гость";
       if (!text) return;
-      var mine = getUserReviews();
-      mine.push({ text: text, name: name });
-      try { localStorage.setItem(USER_REVIEWS_KEY, JSON.stringify(mine)); } catch (err) { /* noop */ }
-      sendLead("review", { text: text, name: name });
-      renderReviews();
-      revForm.reset();
-      formStatus(revForm, true);
+      fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name, text: text })
+      }).then(function (r) {
+        if (!r.ok) throw new Error("bad status");
+        revForm.reset();
+        var ok = document.createElement("p");
+        ok.className = "small mt-2 mb-0";
+        ok.textContent = "Спасибо! Отзыв появится после проверки.";
+        revForm.appendChild(ok);
+        setTimeout(function () { ok.remove(); }, 5000);
+      }).catch(function () {
+        alert("Не получилось отправить отзыв. Попробуйте позже.");
+      });
     });
   }
 

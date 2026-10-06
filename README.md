@@ -8,16 +8,49 @@
 - Vanilla JS (без фреймворков): калькулятор, черновик в `localStorage`, модалка покупки, динамические отзывы
 - Шрифт Manrope (Google Fonts), палитра: тёплый бежевый + глубокий синий
 
-## Как запустить
-
-Нужен только браузер и интернет (Bootstrap/шрифты с CDN):
+## Как запустить (полный инструмент)
 
 ```bash
-# вариант 1: просто открыть файл
-index.html
+cd api
+copy .env.example .env   # и сменить ADMIN_PASSWORD!
+npm install
+npm start                # → http://localhost:3100
+```
 
-# вариант 2: локальный сервер
-npx serve .
+- Витрина: `http://localhost:3100/`
+- Админка заявок: `http://localhost:3100/admin.html` (пароль из `.env`)
+- База: `data/leads.db` (SQLite, создаётся сама)
+- Почта: без SMTP в `.env` заявки копятся в базе, текст «писем» виден в консоли сервера. С SMTP — уходят на `NOTIFY_TO` автоматически.
+
+## API
+
+| Метод | Путь | Что делает |
+|-------|------|-----------|
+| `POST` | `/api/leads` | `{form, ...данные}` → сохраняет в SQLite, шлёт email (best effort) |
+| `GET` | `/api/admin/leads` | список заявок (заголовок `x-admin-key: <пароль>`) |
+| `GET` | `/api/reviews` | одобренные отзывы для витрины |
+| `POST` | `/api/reviews` | `{name, text}` → на модерацию (+ письмо партнёру) |
+| `GET` | `/api/admin/reviews` | все отзывы для модерации |
+| `POST` | `/api/admin/reviews/:id/approve` | `{approved: true/false}` |
+| `DELETE` | `/api/admin/reviews/:id` | удалить отзыв |
+
+Антиспам: свой preHandler-лимитер — максимум 10 записей в минуту с IP (ответ 429). Живые люди не заметят, спам-скрипт упрётся.
+
+## Структура
+
+```
+author-site/
+├── index.html      # все 11 блоков: hero, об авторе, книги, главы,
+│                   # эссе (аккордеон), стихи (табы), конструктор,
+│                   # отзывы, AI-блок, подписка, футер
+├── admin.html      # админка: просмотр и фильтр заявок
+├── css/style.css   # палитра и компоненты поверх Bootstrap
+├── js/script.js    # калькулятор, черновик, отзывы, заявки
+├── api/            # мини-бэкенд (Fastify + node:sqlite + nodemailer)
+│   ├── server.js   # статика + /api/leads + /api/admin/leads
+│   ├── db.js       # SQLite: saveLead / listLeads
+│   └── mailer.js   # уведомления (или честный лог без SMTP)
+└── data/           # leads.db (создаётся при старте, не в git)
 ```
 
 ## Как устроены заявки

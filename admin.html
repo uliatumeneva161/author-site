@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Заявки — админка витрины</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container py-5">
+    <h1>Заявки с витрины</h1>
+    <p class="section-sub" id="mailState"></p>
+
+    <div id="login" class="d-flex gap-2 flex-wrap mb-4">
+      <input id="key" type="password" class="form-control w-auto" placeholder="Пароль администратора" style="min-width:260px">
+      <button id="loginBtn" type="button" class="btn btn-accent">Показать заявки</button>
+    </div>
+
+    <div class="d-flex gap-2 flex-wrap mb-3 d-none" id="tools">
+      <select id="filter" class="form-select w-auto">
+        <option value="">Все типы</option>
+        <option value="gift-order">Заказы миникнижек</option>
+        <option value="chapter-order">Покупки глав</option>
+        <option value="subscribe">Подписки</option>
+        <option value="ai-rating">Оценки AI</option>
+        <option value="review">Отзывы</option>
+      </select>
+      <button id="reloadBtn" type="button" class="btn btn-ghost">Обновить</button>
+    </div>
+
+    <div id="list" class="d-grid gap-3"></div>
+
+    <h2 class="mt-5">Модерация отзывов</h2>
+    <p class="section-sub">Новые отзывы появляются на витрине только после одобрения.</p>
+    <div id="modList" class="d-grid gap-3"></div>
+  </div>
+
+  <script>
+    "use strict";
+    var cache = [];
+
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+      });
+    }
+
+    function render() {
+      var f = document.getElementById("filter").value;
+      var box = document.getElementById("list");
+      box.innerHTML = "";
+      cache.filter(function (l) { return !f || l.type === f; }).forEach(function (l) {
+        var card = document.createElement("div");
+        card.className = "card card-soft";
+        var rows = Object.keys(l.payload).map(function (k) {
+          var v = l.payload[k];
+          if (v && typeof v === "object") v = JSON.stringify(v);
+          return "<div><strong>" + esc(k) + ":</strong> " + esc(v) + "</div>";
+        }).join("");
+        card.innerHTML = '<div class="card-body">' +
+          "<h5>#" + l.id + " · " + esc(l.type) + " · " + esc(l.created_at) +
+          (l.emailed ? ' · <span class="badge badge-soon">на почте</span>' : "") + "</h5>" +
+          rows + "</div>";
+        box.appendChild(card);
+      });
+      if (!box.children.length) box.innerHTML = '<p class="text-muted">Заявок пока нет.</p>';
+    }
+
+    function load() {
+      var key = sessionStorage.getItem("adminKey") || document.getElementById("key").value;
+      fetch("/api/admin/leads", { headers: { "x-admin-key": key } }).then(function (r) {
+        if (r.status === 401) throw new Error("auth");
+        return r.json();
+      }).then(function (data) {
+        sessionStorage.setItem("adminKey", key);
+        document.getElementById("login").classList.add("d-none");
+        document.getElementById("tools").classList.remove("d-none");
+        document.getElementById("mailState").textContent = data.mailConfigured
+          ? "Уведомления на почту включены."
+          : "Почта не настроена: заявки хранятся здесь, в базе.";
+        cache = data.leads;
+        render();
+        loadMod();
+      }).catch(function (e) {
+        alert(e.message === "auth" ? "Неверный пароль." : "Сервер недоступен.");
+      });
+    }
+
+    function adminFetch(path, opts) {
+      opts = opts || {};
+      opts.headers = { "x-admin-key": sessionStorage.getItem("adminKey") || "" };
+      if (opts.body) opts.headers["Content-Type"] = "application/json";
+      return fetch(path, opts);
+    }
+
+    function loadMod() {
+      adminFetch("/api/admin/reviews").then(function (r) { return r.json(); }).then(function (data) {
+        var box = document.getElementById("modList");
+        box.innerHTML = "";
+        data.reviews.forEach(function (r) {
+          var card = document.createElement("div");
+          card.className = "card card-soft";
+          var state = r.approved ? '<span class="badge badge-soon">на витрине</span>' : '<span class="badge bg-warning text-dark">ждёт проверки</span>';
+          card.innerHTML = '<div class="card-body">' +
+            "<h5>#" + r.id + " · " + esc(r.name) + " · " + state + "</h5>" +
+            "<p>" + esc(r.text) + "</p>" +
+            '<div class="d-flex gap-2">' +
+            (r.approved ? "" : '<button class="btn btn-sm btn-accent" data-act="ok">Одобрить</button>') +
+            '<button class="btn btn-sm btn-ghost" data-act="del">Удалить</button>' +
+            "</div></div>";
+          card.querySelector('[data-act="del"]').addEventListener("click", function () {
+            adminFetch("/api/admin/reviews/" + r.id, { method: "DELETE" }).then(loadMod);
+          });
+          var okBtn = card.querySelector('[data-act="ok"]');
+          if (okBtn) {
+            okBtn.addEventListener("click", function () {
+              adminFetch("/api/admin/reviews/" + r.id + "/approve", {
+                method: "POST", body: JSON.stringify({ approved: true })
+              }).then(loadMod);
+            });
+          }
+          box.appendChild(card);
+        });
+        if (!box.children.length) box.innerHTML = '<p class="text-muted">Отзывов пока нет.</p>';
+      });
+    }
+
+    document.getElementById("loginBtn").addEventListener("click", load);
+    document.getElementById("key").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") load();
+    });
+    document.getElementById("reloadBtn").addEventListener("click", load);
+    document.getElementById("filter").addEventListener("change", render);
+    if (sessionStorage.getItem("adminKey")) load();
+  </script>
+</body>
+</html>
